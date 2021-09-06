@@ -235,6 +235,20 @@ variable "enable_kubelet_user_assigned_identity" {
   default     = false
 }
 
+variable "linux_profile" {
+  description = "Specify the username and ssh key file path to authenticate AKS cluster"
+  type = object({
+    admin_username = string
+    ssh_key_data   = optional(string)
+  })
+  default = null
+}
+
+variable "user_assigned_identity_id" {
+  description = "Specifies the user managed identity id to be assigned. This is required when `type` is set to `UserAssigned`"
+  default     = null
+}
+
 variable "log_analytics_workspace_name" {
   description = "The name of log analytics workspace name"
   default     = null

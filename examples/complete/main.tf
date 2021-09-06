@@ -27,6 +27,10 @@ module "aks" {
     }
   }
 
+  linux_profile = {
+    admin_username = "hademoadmin"
+  }
+
   # (Optional) To enable Azure Monitoring for Azure Frontdoor
   # (Optional) Specify `storage_account_name` to save monitoring logs to storage. 
   #log_analytics_workspace_name = "loganalytics-we-sharedtest2"

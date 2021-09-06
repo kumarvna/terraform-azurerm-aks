@@ -39,7 +39,18 @@ data "azurerm_user_assigned_identity" "usi" {
   resource_group_name = local.resource_group_name
 }
 
+#---------------------------------------------------------------
+# Generates SSH2 key Pair for AKS cluster (optional)
+#---------------------------------------------------------------
+resource "tls_private_key" "rsa" {
+  count     = var.linux_profile.ssh_key_data != null ? 1 : 0
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
 
+#--------------------------------------------------------------------------
+# Bring your own Private DNS server zone for this cluster. (optional)  
+#--------------------------------------------------------------------------
 resource "azurerm_private_dns_zone" "main" {
   count               = var.private_dns_zone_name != null ? 1 : 0
   name                = var.private_dns_zone_name
@@ -47,9 +58,9 @@ resource "azurerm_private_dns_zone" "main" {
   tags                = merge({ "Name" = format("%s", "AKS-Private-DNS-Zone") }, var.tags, )
 }
 
-#--------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 # Managed Kubernetes Cluster (also known as AKS / Azure Kubernetes Service
-#--------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 resource "azurerm_kubernetes_cluster" "main" {
   name                                = format("aks-%s", var.kubernetes_cluster_name)
   resource_group_name                 = local.resource_group_name
@@ -270,7 +281,13 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "linux_profile" {
-
+    for_each = var.linux_profile != null ? [var.linux_profile] : []
+    content {
+      admin_username = linux_profile.value.admin_username
+      ssh_key {
+        key_data = var.linux_profile.ssh_key_data == null ? tls_private_key.rsa[0].public_key_openssh : file(var.linux_profile.ssh_key_data)
+      }
+    }
   }
 
   dynamic "maintenance_window" {
