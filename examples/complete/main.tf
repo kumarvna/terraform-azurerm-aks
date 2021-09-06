@@ -21,6 +21,12 @@ module "aks" {
     vm_size    = "Standard_D2_v2"
   }
 
+  addon_profile = {
+    kube_dashboard = {
+      enabled = true
+    }
+  }
+
   # (Optional) To enable Azure Monitoring for Azure Frontdoor
   # (Optional) Specify `storage_account_name` to save monitoring logs to storage. 
   #log_analytics_workspace_name = "loganalytics-we-sharedtest2"

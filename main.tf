@@ -96,9 +96,11 @@ resource "azurerm_kubernetes_cluster" "main" {
 
     # The ID of a Subnet where the Kubernetes Node Pool should exist. A Route Table must be configured on this Subnet.
     vnet_subnet_id = var.default_node_pool.vnet_subnet_id
-    max_count      = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.max_count : null
-    min_count      = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.min_count : null
-    node_count     = var.default_node_pool.enable_auto_scaling == false ? var.default_node_pool.node_count : null
+
+    # If enable_auto_scaling is set to false both min_count and max_count fields need to be set to null or omitted from the configuration.
+    max_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.max_count : null
+    min_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.min_count : null
+    node_count = var.default_node_pool.enable_auto_scaling == false ? var.default_node_pool.node_count : null
 
     dynamic "upgrade_settings" {
       for_each = var.default_node_pool.upgrade_settings
@@ -225,7 +227,27 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "auto_scaler_profile" {
+    for_each = var.auto_scaler_profile != null ? [var.auto_scaler_profile] : []
+    content {
+      balance_similar_node_groups      = lookup(auto_scaler_profile.value, "balance_similar_node_groups", false)
+      expander                         = lookup(auto_scaler_profile.value, "expander", "random")
+      max_graceful_termination_sec     = lookup(auto_scaler_profile.value, "max_graceful_termination_sec", 600)
+      max_node_provisioning_time       = lookup(auto_scaler_profile.value, "max_node_provisioning_time", "15m")
+      max_unready_nodes                = lookup(auto_scaler_profile.value, "max_unready_nodes", 3)
+      max_unready_percentage           = lookup(auto_scaler_profile.value, "max_unready_percentage", 45)
+      new_pod_scale_up_delay           = lookup(auto_scaler_profile.value, "new_pod_scale_up_delay", "10s")
+      scale_down_delay_after_add       = lookup(auto_scaler_profile.value, "scale_down_delay_after_add", "10m")
+      scale_down_delay_after_delete    = lookup(auto_scaler_profile.value, "scale_down_delay_after_delete", "10s")
+      scale_down_delay_after_failure   = lookup(auto_scaler_profile.value, "scale_down_delay_after_failure", "3m")
+      scan_interval                    = lookup(auto_scaler_profile.value, "scan_interval", "10s")
+      scale_down_unneeded              = lookup(auto_scaler_profile.value, "scale_down_unneeded", "10m")
+      scale_down_unready               = lookup(auto_scaler_profile.value, "scale_down_unready", "20m")
+      scale_down_utilization_threshold = lookup(auto_scaler_profile.value, "scale_down_utilization_threshold", "0.5")
+      empty_bulk_delete_max            = lookup(auto_scaler_profile.value, "empty_bulk_delete_max", 10)
+      skip_nodes_with_local_storage    = lookup(auto_scaler_profile.value, "skip_nodes_with_local_storage", true)
+      skip_nodes_with_system_pods      = lookup(auto_scaler_profile.value, "skip_nodes_with_system_pods", true)
 
+    }
   }
 
   dynamic "identity" {

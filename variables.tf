@@ -184,7 +184,29 @@ variable "addon_profile" {
   default = {}
 }
 
-
+variable "auto_scaler_profile" {
+  description = "value"
+  type = object({
+    balance_similar_node_groups      = bool
+    expander                         = string
+    max_graceful_termination_sec     = number
+    max_node_provisioning_time       = string
+    max_unready_nodes                = number
+    max_unready_percentage           = number
+    new_pod_scale_up_delay           = string
+    scale_down_delay_after_add       = string
+    scale_down_delay_after_delete    = string
+    scale_down_delay_after_failure   = string
+    scan_interval                    = string
+    scale_down_unneeded              = string
+    scale_down_unready               = string
+    scale_down_utilization_threshold = string
+    empty_bulk_delete_max            = number
+    skip_nodes_with_local_storage    = bool
+    skip_nodes_with_system_pods      = bool
+  })
+  default = null
+}
 
 variable "network_profile" {
   description = "value"
