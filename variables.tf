@@ -88,6 +88,11 @@ variable "default_node_pool" {
     os_disk_type                 = optional(string)
     pod_subnet_id                = optional(string)
     type                         = optional(string)
+    ultra_ssd_enabled            = optional(bool)
+    vnet_subnet_id               = optional(string)
+    upgrade_settings = optional(object({
+      max_surge = number
+    }))
   })
 }
 
@@ -147,6 +152,28 @@ variable "linux_os_config" {
     }))
   })
   default = {}
+}
+
+variable "network_profile" {
+  description = "value"
+  type = object({
+    network_plugin     = string
+    network_mode       = optional(string)
+    dns_service_ip     = optional(string)
+    docker_bridge_cidr = optional(string)
+    outbound_type      = optional(string)
+    pod_cidr           = optional(list(string))
+    service_cidr       = optional(list(string))
+    load_balancer_sku  = optional(string)
+    load_balancer_profile = optional(object({
+      outbound_ports_allocated  = optional(number)
+      idle_timeout_in_minutes   = optional(number)
+      managed_outbound_ip_count = optional(number)
+      outbound_ip_prefix_ids    = optional(list(string))
+      outbound_ip_address_ids   = optional(list(string))
+    }))
+  })
+  default = null
 }
 
 variable "tags" {

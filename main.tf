@@ -75,9 +75,20 @@ resource "azurerm_kubernetes_cluster" "main" {
     os_disk_type = var.default_node_pool.os_disk_type
 
     # The ID of the Subnet where the pods in the default Node Pool should exist.
-    pod_subnet_id = var.default_node_pool.pod_subnet_id
-    type          = var.default_node_pool.type
-    tags          = merge({ "ResourceName" = format("%s", var.default_node_pool.name) }, var.tags, )
+    pod_subnet_id     = var.default_node_pool.pod_subnet_id
+    type              = var.default_node_pool.type
+    tags              = merge({ "ResourceName" = format("%s", var.default_node_pool.name) }, var.tags, )
+    ultra_ssd_enabled = var.default_node_pool.ultra_ssd_enabled
+
+    # The ID of a Subnet where the Kubernetes Node Pool should exist. A Route Table must be configured on this Subnet.
+    vnet_subnet_id = var.default_node_pool.vnet_subnet_id
+
+    dynamic "upgrade_settings" {
+      for_each = var.default_node_pool.upgrade_settings
+      content {
+        max_surge = upgrade_settings.value.max_surge
+      }
+    }
 
     dynamic "kubelet_config" {
       for_each = var.kubelet_config
@@ -166,7 +177,37 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "network_profile" {
+    for_each = var.network_profile
+    content {
+      # When network_plugin is set to `azure` - the `vnet_subnet_id` field in the `default_node_pool` block must be set and `pod_cidr` must not be set.
+      network_plugin     = lookup(network_profile.value, "network_plugin", "kubenet")
+      network_mode       = network_profile.value.network_plugin == "azure" ? network_profile.value.network_mode : null
+      network_policy     = network_profile.value.network_plugin == "azure" ? "azure" : "calico"
+      dns_service_ip     = network_profile.value.dns_service_ip
+      docker_bridge_cidr = network_profile.value.docker_bridge_cidr
+      outbound_type      = lookup(network_profile.value, "outbound_type", "loadBalancer")
 
+      # This range should not be used by any network element on or connected to this VNet. Service address CIDR must be smaller than /12. docker_bridge_cidr, dns_service_ip and service_cidr should all be empty or all should be set.  
+      pod_cidr          = network_profile.value.network_plugin == "kubenet" ? network_profile.value.pod_cidr : null
+      service_cidr      = network_profile.value.service_cidr
+      load_balancer_sku = lookup(network_profile.value, "load_balancer_sku", "Standard")
+
+      dynamic "load_balancer_profile" {
+        for_each = network_profile.value.load_balancer_profile
+        content {
+          outbound_ports_allocated = load_balancer_profile.value.outbound_ports_allocated
+          idle_timeout_in_minutes  = load_balancer_profile.value.idle_timeout_in_minutes
+          # User has to explicitly set `managed_outbound_ip_count` to empty slice ([]) to remove it.
+          managed_outbound_ip_count = lookup(load_balancer_profile.value, "managed_outbound_ip_count", [])
+
+          # User has to explicitly set `outbound_ip_prefix_ids` to empty slice ([]) to remove it.
+          outbound_ip_prefix_ids = lookup(load_balancer_profile.value, "outbound_ip_prefix_ids", [])
+
+          # User has to explicitly set outbound_ip_address_ids to empty slice ([]) to remove it.
+          outbound_ip_address_ids = lookup(load_balancer_profile.value, "outbound_ip_address_ids", [])
+        }
+      }
+    }
   }
 
   dynamic "role_based_access_control" {
