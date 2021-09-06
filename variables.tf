@@ -45,7 +45,7 @@ variable "disk_encryption_set_id" {
 
 variable "kubernetes_version" {
   description = "Version of Kubernetes specified when creating the AKS managed cluster. If not specified, the latest recommended version will be used at provisioning time (but won't auto-upgrade)"
-  default     = ""
+  default     = "1.20.9"
 }
 
 variable "node_resource_group" {
@@ -113,7 +113,7 @@ variable "kubelet_config" {
     pod_max_pid               = optional(number)
     topology_manager_policy   = optional(string)
   })
-  default = {}
+  default = null
 }
 
 variable "linux_os_config" {
@@ -154,7 +154,7 @@ variable "linux_os_config" {
       vm_vfs_cache_pressure              = optional(number)
     }))
   })
-  default = {}
+  default = null
 }
 
 variable "addon_profile" {
@@ -181,7 +181,7 @@ variable "addon_profile" {
       subnet_id    = string
     }))
   })
-  default = {}
+  default = null
 }
 
 variable "auto_scaler_profile" {
@@ -241,12 +241,36 @@ variable "linux_profile" {
     admin_username = string
     ssh_key_data   = optional(string)
   })
-  default = null
 }
 
 variable "user_assigned_identity_id" {
   description = "Specifies the user managed identity id to be assigned. This is required when `type` is set to `UserAssigned`"
   default     = null
+}
+
+variable "maintenance_window" {
+  description = "Schedule maintenance windows for the Azure Kubernetes Service (AKS) cluster"
+  type = object({
+    allowed_day        = string
+    allowed_hours      = number
+    end_of_time_span   = string
+    start_of_time_span = string
+  })
+  default = null
+}
+
+variable "azure_active_directory" {
+  description = " Azure Active Directory configuration for role based access control"
+  type = object({
+    managed                = bool
+    tenant_id              = optional(string)
+    admin_group_object_ids = optional(list(string))
+    azure_rbac_enabled     = optional(bool)
+    client_app_id          = string
+    server_app_id          = string
+    server_app_secret      = string
+  })
+  default = null
 }
 
 variable "log_analytics_workspace_name" {

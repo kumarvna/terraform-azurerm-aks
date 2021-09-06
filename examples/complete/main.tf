@@ -14,17 +14,13 @@ module "aks" {
   resource_group_name     = "rg-shared-westeurope-01"
   location                = "westeurope"
   kubernetes_cluster_name = "example-aks-demo1"
+  kubernetes_version      = "1.20.9"
 
   default_node_pool = {
     name       = "default"
-    node_count = 1
+    node_count = 2
     vm_size    = "Standard_D2_v2"
-  }
-
-  addon_profile = {
-    kube_dashboard = {
-      enabled = true
-    }
+    max_pods   = 90
   }
 
   linux_profile = {
@@ -33,7 +29,7 @@ module "aks" {
 
   # (Optional) To enable Azure Monitoring for Azure Frontdoor
   # (Optional) Specify `storage_account_name` to save monitoring logs to storage. 
-  #log_analytics_workspace_name = "loganalytics-we-sharedtest2"
+  log_analytics_workspace_name = "loganalytics-we-sharedtest2"
 
   # Adding TAG's to your Azure resources 
   tags = {

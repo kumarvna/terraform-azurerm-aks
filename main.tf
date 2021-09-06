@@ -33,6 +33,8 @@ data "azurerm_storage_account" "storeacc" {
   resource_group_name = local.location
 }
 
+data "azurerm_client_config" "current" {}
+
 data "azurerm_user_assigned_identity" "usi" {
   count               = var.user_assigned_identity_id != null ? 1 : 0
   name                = element(split("/", var.user_assigned_identity_id), 8)
@@ -43,7 +45,7 @@ data "azurerm_user_assigned_identity" "usi" {
 # Generates SSH2 key Pair for AKS cluster (optional)
 #---------------------------------------------------------------
 resource "tls_private_key" "rsa" {
-  count     = var.linux_profile.ssh_key_data != null ? 1 : 0
+  count     = var.linux_profile.ssh_key_data == null ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
@@ -74,14 +76,14 @@ resource "azurerm_kubernetes_cluster" "main" {
   node_resource_group                 = var.node_resource_group
   private_cluster_enabled             = var.private_cluster_public_fqdn_enabled == true ? true : false
   private_cluster_public_fqdn_enabled = var.private_cluster_public_fqdn_enabled
-  private_dns_zone_id                 = var.private_dns_zone_name != null ? azurerm_private_dns_zone.main.0.id : "System"
+  private_dns_zone_id                 = var.private_dns_zone_name != null ? azurerm_private_dns_zone.main.0.id : null
   sku_tier                            = var.aks_sku_tier
   tags                                = merge({ "ResourceName" = format("aks-%s", var.kubernetes_cluster_name) }, var.tags, )
 
   default_node_pool {
     name                   = format("%s", var.default_node_pool.name)
     vm_size                = var.default_node_pool.vm_size
-    availability_zones     = var.default_node_pool.type == "VirtualMachineScaleSets" && var.network_profile.load_balancer_sku == "Standard" ? var.default_node_pool.availability_zones : null
+    availability_zones     = var.default_node_pool.type == "VirtualMachineScaleSets" ? var.default_node_pool.availability_zones : null
     enable_auto_scaling    = var.default_node_pool.type == "VirtualMachineScaleSets" ? lookup(var.default_node_pool, "enable_auto_scaling", false) : false
     enable_host_encryption = lookup(var.default_node_pool, "enable_host_encryption", false)
     enable_node_public_ip  = lookup(var.default_node_pool, "enable_node_public_ip", false)
@@ -116,17 +118,17 @@ resource "azurerm_kubernetes_cluster" "main" {
     # If enable_auto_scaling is set to false both min_count and max_count fields need to be set to null or omitted from the configuration.
     max_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.max_count : null
     min_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.min_count : null
-    node_count = var.default_node_pool.enable_auto_scaling == false ? var.default_node_pool.node_count : null
+    node_count = var.default_node_pool.node_count
 
     dynamic "upgrade_settings" {
-      for_each = var.default_node_pool.upgrade_settings
+      for_each = var.default_node_pool.upgrade_settings != null ? [var.default_node_pool.upgrade_settings] : []
       content {
         max_surge = upgrade_settings.value.max_surge
       }
     }
 
     dynamic "kubelet_config" {
-      for_each = var.kubelet_config
+      for_each = var.kubelet_config != null ? [var.kubelet_config] : []
       content {
         allowed_unsafe_sysctls    = kubelet_config.value.allowed_unsafe_sysctls
         container_log_max_line    = kubelet_config.value.container_log_max_line
@@ -142,14 +144,14 @@ resource "azurerm_kubernetes_cluster" "main" {
     }
 
     dynamic "linux_os_config" {
-      for_each = var.linux_os_config
+      for_each = var.linux_os_config != null ? [var.linux_os_config] : []
       content {
         swap_file_size_mb             = linux_os_config.value.swap_file_size_mb
         transparent_huge_page_defrag  = linux_os_config.value.transparent_huge_page_defrag
         transparent_huge_page_enabled = linux_os_config.value.transparent_huge_page_enabled
 
         dynamic "sysctl_config" {
-          for_each = linux_os_config.value.sysctl_config
+          for_each = linux_os_config.value.sysctl_config[*]
           content {
             fs_aio_max_nr                      = linux_os_config.value.fs_aio_max_nr
             fs_file_max                        = linux_os_config.value.fs_file_max
@@ -188,11 +190,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "addon_profile" {
-    for_each = var.addon_profile
+    for_each = var.addon_profile != null ? [var.addon_profile] : []
     content {
 
       dynamic "aci_connector_linux" {
-        for_each = addon_profile.value.aci_connector_linux
+        for_each = addon_profile.value.aci_connector_linux[*]
         content {
           enabled     = aci_connector_linux.value.enabled
           subnet_name = aci_connector_linux.value.subnet_name
@@ -200,21 +202,21 @@ resource "azurerm_kubernetes_cluster" "main" {
       }
 
       dynamic "azure_policy" {
-        for_each = addon_profile.value.azure_policy
+        for_each = addon_profile.value.azure_policy[*]
         content {
           enabled = azure_policy.value.enabled
         }
       }
 
       dynamic "http_application_routing" {
-        for_each = addon_profile.value.http_application_routing
+        for_each = addon_profile.value.http_application_routing[*]
         content {
           enabled = http_application_routing.value.enabled
         }
       }
 
       dynamic "kube_dashboard" {
-        for_each = addon_profile.value.kube_dashboard
+        for_each = addon_profile.value.kube_dashboard[*]
         content {
           enabled = kube_dashboard.value.enabled
         }
@@ -224,12 +226,12 @@ resource "azurerm_kubernetes_cluster" "main" {
         for_each = var.log_analytics_workspace_name != null ? [1] : [0]
         content {
           enabled                    = var.log_analytics_workspace_name != null ? true : false
-          log_analytics_workspace_id = data.azurerm_log_analytics_workspace.logws.0.id
+          log_analytics_workspace_id = var.log_analytics_workspace_name != null ? data.azurerm_log_analytics_workspace.logws.0.id : null
         }
       }
 
       dynamic "ingress_application_gateway" {
-        for_each = addon_profile.value.ingress_application_gateway
+        for_each = addon_profile.value.ingress_application_gateway[*]
         content {
           # If using enabled in conjunction with only_critical_addons_enabled, the AGIC pod will fail to start. A separate azurerm_kubernetes_cluster_node_pool is required to run the AGIC pod successfully. This is because AGIC is classed as a "non-critical addon".
           enabled      = lookup(ingress_application_gateway.value, "enabled", false)
@@ -274,24 +276,32 @@ resource "azurerm_kubernetes_cluster" "main" {
   dynamic "kubelet_identity" {
     for_each = var.enable_kubelet_user_assigned_identity && var.user_assigned_identity_id != null ? [1] : [0]
     content {
-      client_id                 = data.azurerm_user_assigned_identity.usi.0.client_id
-      object_id                 = data.azurerm_user_assigned_identity.usi.0.object_id
-      user_assigned_identity_id = data.azurerm_user_assigned_identity.usi.id
+      client_id                 = var.enable_kubelet_user_assigned_identity ? data.azurerm_user_assigned_identity.usi.0.client_id : null
+      object_id                 = var.enable_kubelet_user_assigned_identity ? data.azurerm_client_config.current.object_id : null
+      user_assigned_identity_id = var.enable_kubelet_user_assigned_identity ? data.azurerm_user_assigned_identity.usi.0.id : null
     }
   }
 
-  dynamic "linux_profile" {
-    for_each = var.linux_profile != null ? [var.linux_profile] : []
-    content {
-      admin_username = linux_profile.value.admin_username
-      ssh_key {
-        key_data = var.linux_profile.ssh_key_data == null ? tls_private_key.rsa[0].public_key_openssh : file(var.linux_profile.ssh_key_data)
-      }
+  linux_profile {
+    admin_username = var.linux_profile.admin_username
+    ssh_key {
+      key_data = var.linux_profile.ssh_key_data != null ? file(var.linux_profile.ssh_key_data) : tls_private_key.rsa[0].public_key_openssh
     }
   }
+
 
   dynamic "maintenance_window" {
-
+    for_each = var.maintenance_window != null ? [var.maintenance_window] : []
+    content {
+      allowed {
+        day   = var.maintenance_window.allowed_day
+        hours = var.maintenance_window.allowed_hours
+      }
+      not_allowed {
+        end   = var.maintenance_window.end_of_time_span
+        start = var.maintenance_window.start_of_time_span
+      }
+    }
   }
 
   dynamic "network_profile" {
@@ -329,15 +339,27 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "role_based_access_control" {
-
+    for_each = var.azure_active_directory != null ? [var.azure_active_directory] : []
+    content {
+      enabled = true
+      azure_active_directory {
+        managed                = var.azure_active_directory.managed
+        tenant_id              = var.azure_active_directory.tenant_id
+        admin_group_object_ids = var.azure_active_directory.managed == true ? var.azure_active_directory.admin_group_object_ids : null
+        azure_rbac_enabled     = var.azure_active_directory.managed == true ? var.azure_active_directory.azure_rbac_enabled : null
+        client_app_id          = var.azure_active_directory.managed == false ? var.azure_active_directory.client_id : null
+        server_app_id          = var.azure_active_directory.managed == false ? var.azure_active_directory.server_app_id : null
+        server_app_secret      = var.azure_active_directory.managed == false ? var.azure_active_directory.server_app_secret : null
+      }
+    }
   }
 
   dynamic "service_principal" {
 
   }
 
-  dynamic "windows_profile" {
+ /*  dynamic "windows_profile" {
 
   }
-
+  */
 }
