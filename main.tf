@@ -33,6 +33,11 @@ data "azurerm_storage_account" "storeacc" {
   resource_group_name = local.location
 }
 
+data "azurerm_user_assigned_identity" "usi" {
+  count               = var.user_assigned_identity_id != null ? 1 : 0
+  name                = element(split("/", var.user_assigned_identity_id), 8)
+  resource_group_name = local.resource_group_name
+}
 
 
 resource "azurerm_private_dns_zone" "main" {
@@ -250,12 +255,18 @@ resource "azurerm_kubernetes_cluster" "main" {
     }
   }
 
-  dynamic "identity" {
-
+  identity {
+    type                      = var.user_assigned_identity_id != null ? "UserAssigned" : "SystemAssigned"
+    user_assigned_identity_id = var.user_assigned_identity_id
   }
 
   dynamic "kubelet_identity" {
-
+    for_each = var.enable_kubelet_user_assigned_identity && var.user_assigned_identity_id != null ? [1] : [0]
+    content {
+      client_id                 = data.azurerm_user_assigned_identity.usi.0.client_id
+      object_id                 = data.azurerm_user_assigned_identity.usi.0.object_id
+      user_assigned_identity_id = data.azurerm_user_assigned_identity.usi.id
+    }
   }
 
   dynamic "linux_profile" {

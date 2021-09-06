@@ -230,6 +230,11 @@ variable "network_profile" {
   default = null
 }
 
+variable "enable_kubelet_user_assigned_identity" {
+  description = "The ID of the User Assigned Identity assigned to the Kubelets"
+  default     = false
+}
+
 variable "log_analytics_workspace_name" {
   description = "The name of log analytics workspace name"
   default     = null
