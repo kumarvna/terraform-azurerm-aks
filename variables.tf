@@ -154,6 +154,35 @@ variable "linux_os_config" {
   default = {}
 }
 
+variable "addon_profile" {
+  description = "addon profile for Azure kubenetes cluser"
+  type = object({
+    aci_connector_linux = optional(object({
+      enabled     = bool
+      subnet_name = string
+    }))
+    azure_policy = optional(object({
+      enabled = bool
+    }))
+    http_application_routing = optional(object({
+      enabled = bool
+    }))
+    kube_dashboard = optional(object({
+      enabled = bool
+    }))
+    ingress_application_gateway = optional(object({
+      enabled      = bool
+      gateway_id   = string
+      gateway_name = string
+      subnet_cidr  = string
+      subnet_id    = string
+    }))
+  })
+  default = {}
+}
+
+
+
 variable "network_profile" {
   description = "value"
   type = object({
@@ -174,6 +203,16 @@ variable "network_profile" {
     }))
   })
   default = null
+}
+
+variable "log_analytics_workspace_name" {
+  description = "The name of log analytics workspace name"
+  default     = null
+}
+
+variable "storage_account_name" {
+  description = "The name of the hub storage account to store logs"
+  default     = null
 }
 
 variable "tags" {

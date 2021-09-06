@@ -21,6 +21,20 @@ resource "azurerm_resource_group" "rg" {
   tags     = merge({ "ResourceName" = format("%s", var.resource_group_name) }, var.tags, )
 }
 
+data "azurerm_log_analytics_workspace" "logws" {
+  count               = var.log_analytics_workspace_name != null ? 1 : 0
+  name                = var.log_analytics_workspace_name
+  resource_group_name = local.resource_group_name
+}
+
+data "azurerm_storage_account" "storeacc" {
+  count               = var.storage_account_name != null ? 1 : 0
+  name                = var.storage_account_name
+  resource_group_name = local.location
+}
+
+
+
 resource "azurerm_private_dns_zone" "main" {
   count               = var.private_dns_zone_name != null ? 1 : 0
   name                = var.private_dns_zone_name
@@ -49,15 +63,15 @@ resource "azurerm_kubernetes_cluster" "main" {
   tags                                = merge({ "ResourceName" = format("aks-%s", var.kubernetes_cluster_name) }, var.tags, )
 
   default_node_pool {
-    name                     = format("%s", var.default_node_pool.name)
-    vm_size                  = var.default_node_pool.vm_size
-    availability_zones       = var.default_node_pool.type == "VirtualMachineScaleSets" && var.network_profile.load_balancer_sku == "Standard" ? var.default_node_pool.availability_zones : null
-    enable_auto_scaling      = var.default_node_pool.type == "VirtualMachineScaleSets" ? lookup(var.default_node_pool, "enable_auto_scaling", false) : false
-    enable_host_encryption   = lookup(var.default_node_pool, "enable_host_encryption", false)
-    enable_node_public_ip    = lookup(var.default_node_pool, "enable_node_public_ip", false)
-    fips_enabled             = var.default_node_pool.fips_enabled
-    kubelet_disk_type        = "OS"
-    local_account_disabled   = var.default_node_pool.local_account_disabled
+    name                   = format("%s", var.default_node_pool.name)
+    vm_size                = var.default_node_pool.vm_size
+    availability_zones     = var.default_node_pool.type == "VirtualMachineScaleSets" && var.network_profile.load_balancer_sku == "Standard" ? var.default_node_pool.availability_zones : null
+    enable_auto_scaling    = var.default_node_pool.type == "VirtualMachineScaleSets" ? lookup(var.default_node_pool, "enable_auto_scaling", false) : false
+    enable_host_encryption = lookup(var.default_node_pool, "enable_host_encryption", false)
+    enable_node_public_ip  = lookup(var.default_node_pool, "enable_node_public_ip", false)
+    fips_enabled           = var.default_node_pool.fips_enabled
+    kubelet_disk_type      = "OS"
+    #    local_account_disabled   = var.default_node_pool.local_account_disabled
     max_pods                 = var.default_node_pool.max_pods
     node_public_ip_prefix_id = var.default_node_pool.enable_node_public_ip == true ? var.default_node_pool.node_public_ip_prefix_id : null
     node_labels              = var.default_node_pool.node_labels
@@ -153,7 +167,58 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "addon_profile" {
+    for_each = var.addon_profile
+    content {
 
+      dynamic "aci_connector_linux" {
+        for_each = addon_profile.value.aci_connector_linux
+        content {
+          enabled     = aci_connector_linux.value.enabled
+          subnet_name = aci_connector_linux.value.subnet_name
+        }
+      }
+
+      dynamic "azure_policy" {
+        for_each = addon_profile.value.azure_policy
+        content {
+          enabled = azure_policy.value.enabled
+        }
+      }
+
+      dynamic "http_application_routing" {
+        for_each = addon_profile.value.http_application_routing
+        content {
+          enabled = http_application_routing.value.enabled
+        }
+      }
+
+      dynamic "kube_dashboard" {
+        for_each = addon_profile.value.kube_dashboard
+        content {
+          enabled = kube_dashboard.value.enabled
+        }
+      }
+
+      dynamic "oms_agent" {
+        for_each = var.log_analytics_workspace_name != null ? [1] : [0]
+        content {
+          enabled                    = var.log_analytics_workspace_name != null ? true : false
+          log_analytics_workspace_id = data.azurerm_log_analytics_workspace.logws.0.id
+        }
+      }
+
+      dynamic "ingress_application_gateway" {
+        for_each = addon_profile.value.ingress_application_gateway
+        content {
+          # If using enabled in conjunction with only_critical_addons_enabled, the AGIC pod will fail to start. A separate azurerm_kubernetes_cluster_node_pool is required to run the AGIC pod successfully. This is because AGIC is classed as a "non-critical addon".
+          enabled      = lookup(ingress_application_gateway.value, "enabled", false)
+          gateway_id   = ingress_application_gateway.value.gateway_id
+          gateway_name = ingress_application_gateway.value.gateway_name
+          subnet_cidr  = ingress_application_gateway.value.subnet_cidr
+          subnet_id    = ingress_application_gateway.value.subnet_id
+        }
+      }
+    }
   }
 
   dynamic "auto_scaler_profile" {
@@ -177,7 +242,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   dynamic "network_profile" {
-    for_each = var.network_profile
+    for_each = var.network_profile != null ? [var.network_profile] : []
     content {
       # When network_plugin is set to `azure` - the `vnet_subnet_id` field in the `default_node_pool` block must be set and `pod_cidr` must not be set.
       network_plugin     = lookup(network_profile.value, "network_plugin", "kubenet")
@@ -193,7 +258,7 @@ resource "azurerm_kubernetes_cluster" "main" {
       load_balancer_sku = lookup(network_profile.value, "load_balancer_sku", "Standard")
 
       dynamic "load_balancer_profile" {
-        for_each = network_profile.value.load_balancer_profile
+        for_each = network_profile.value.load_balancer_profile[*]
         content {
           outbound_ports_allocated = load_balancer_profile.value.outbound_ports_allocated
           idle_timeout_in_minutes  = load_balancer_profile.value.idle_timeout_in_minutes
