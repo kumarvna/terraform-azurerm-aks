@@ -16,8 +16,9 @@ module "aks" {
   kubernetes_cluster_name = "example-aks-demo1"
 
   default_node_pool = {
-    name    = "default"
-    vm_size = "Standard_D2_v2"
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_D2_v2"
   }
 
   # (Optional) To enable Azure Monitoring for Azure Frontdoor

@@ -90,6 +90,9 @@ variable "default_node_pool" {
     type                         = optional(string)
     ultra_ssd_enabled            = optional(bool)
     vnet_subnet_id               = optional(string)
+    max_count                    = optional(number)
+    min_count                    = optional(number)
+    node_count                   = optional(number)
     upgrade_settings = optional(object({
       max_surge = number
     }))

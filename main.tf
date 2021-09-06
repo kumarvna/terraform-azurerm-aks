@@ -96,6 +96,9 @@ resource "azurerm_kubernetes_cluster" "main" {
 
     # The ID of a Subnet where the Kubernetes Node Pool should exist. A Route Table must be configured on this Subnet.
     vnet_subnet_id = var.default_node_pool.vnet_subnet_id
+    max_count      = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.max_count : null
+    min_count      = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.min_count : null
+    node_count     = var.default_node_pool.enable_auto_scaling == false ? var.default_node_pool.node_count : null
 
     dynamic "upgrade_settings" {
       for_each = var.default_node_pool.upgrade_settings
