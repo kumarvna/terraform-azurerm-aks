@@ -68,9 +68,9 @@ variable "private_dns_zone_name" {
   default     = null
 }
 
-variable "default_node_pool" {
-  description = "Default node pool configuration"
-  type = object({
+variable "node_pools" {
+  description = "List of node pools for a cluster in Azure Kubernetes Service"
+  type = map(object({
     name                         = string
     vm_size                      = string
     availability_zones           = optional(list(string))
@@ -96,7 +96,7 @@ variable "default_node_pool" {
     upgrade_settings = optional(object({
       max_surge = number
     }))
-  })
+  }))
 }
 
 variable "kubelet_config" {
@@ -269,6 +269,24 @@ variable "azure_active_directory" {
     client_app_id          = string
     server_app_id          = string
     server_app_secret      = string
+  })
+  default = null
+}
+
+variable "service_principal" {
+  description = "Service Principal for Aks cluster"
+  type = object({
+    client_id     = string
+    client_secret = string
+  })
+  default = null
+}
+
+variable "windows_profile" {
+  description = " Windows server profile for AKS cluster"
+  type = object({
+    admin_username = string
+    admin_password = string
   })
   default = null
 }

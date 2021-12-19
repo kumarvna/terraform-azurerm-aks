@@ -80,113 +80,115 @@ resource "azurerm_kubernetes_cluster" "main" {
   sku_tier                            = var.aks_sku_tier
   tags                                = merge({ "ResourceName" = format("aks-%s", var.kubernetes_cluster_name) }, var.tags, )
 
-  default_node_pool {
-    name                   = format("%s", var.default_node_pool.name)
-    vm_size                = var.default_node_pool.vm_size
-    availability_zones     = var.default_node_pool.type == "VirtualMachineScaleSets" ? var.default_node_pool.availability_zones : null
-    enable_auto_scaling    = var.default_node_pool.type == "VirtualMachineScaleSets" ? lookup(var.default_node_pool, "enable_auto_scaling", false) : false
-    enable_host_encryption = lookup(var.default_node_pool, "enable_host_encryption", false)
-    enable_node_public_ip  = lookup(var.default_node_pool, "enable_node_public_ip", false)
-    fips_enabled           = var.default_node_pool.fips_enabled
-    kubelet_disk_type      = "OS"
-    #    local_account_disabled   = var.default_node_pool.local_account_disabled
-    max_pods                 = var.default_node_pool.max_pods
-    node_public_ip_prefix_id = var.default_node_pool.enable_node_public_ip == true ? var.default_node_pool.node_public_ip_prefix_id : null
-    node_labels              = var.default_node_pool.node_labels
+  dynamic "default_node_pool" {
+    for_each = var.node_pools
+    content {
+      name                   = format("%s", default_node_pool.value.name)
+      vm_size                = default_node_pool.value.vm_size
+      availability_zones     = default_node_pool.value.type == "VirtualMachineScaleSets" ? default_node_pool.value.availability_zones : null
+      enable_auto_scaling    = default_node_pool.value.type == "VirtualMachineScaleSets" ? lookup(default_node_pool.value, "enable_auto_scaling", false) : false
+      enable_host_encryption = lookup(default_node_pool.value, "enable_host_encryption", false)
+      enable_node_public_ip  = lookup(default_node_pool.value, "enable_node_public_ip", false)
+      fips_enabled           = default_node_pool.value.fips_enabled
+      kubelet_disk_type      = "OS"
+      #    local_account_disabled   = default_node_pool.value.local_account_disabled
+      max_pods                 = default_node_pool.value.max_pods
+      node_public_ip_prefix_id = default_node_pool.value.enable_node_public_ip == true ? default_node_pool.value.node_public_ip_prefix_id : null
+      node_labels              = default_node_pool.value.node_labels
 
-    # Enabling this option will taint default node pool with CriticalAddonsOnly=true:NoSchedule taint.
-    only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
+      # Enabling this option will taint default node pool with CriticalAddonsOnly=true:NoSchedule taint.
+      only_critical_addons_enabled = default_node_pool.value.only_critical_addons_enabled
 
-    # This version must be supported by the Kubernetes Cluster - as such the version of Kubernetes used on the Cluster/Control Plane may need to be upgraded first.
-    orchestrator_version = var.default_node_pool.orchestrator_version
+      # This version must be supported by the Kubernetes Cluster - as such the version of Kubernetes used on the Cluster/Control Plane may need to be upgraded first.
+      orchestrator_version = default_node_pool.value.orchestrator_version
 
-    # The size of the OS Disk which should be used for each agent in the Node Pool.
-    os_disk_size_gb = var.default_node_pool.os_disk_size_gb
+      # The size of the OS Disk which should be used for each agent in the Node Pool.
+      os_disk_size_gb = default_node_pool.value.os_disk_size_gb
 
-    # The type of disk which should be used for the Operating System. Possible values are Ephemeral and Managed. Defaults to Managed
-    os_disk_type = var.default_node_pool.os_disk_type
+      # The type of disk which should be used for the Operating System. Possible values are Ephemeral and Managed. Defaults to Managed
+      os_disk_type = default_node_pool.value.os_disk_type
 
-    # The ID of the Subnet where the pods in the default Node Pool should exist.
-    pod_subnet_id     = var.default_node_pool.pod_subnet_id
-    type              = var.default_node_pool.type
-    tags              = merge({ "ResourceName" = format("%s", var.default_node_pool.name) }, var.tags, )
-    ultra_ssd_enabled = var.default_node_pool.ultra_ssd_enabled
+      # The ID of the Subnet where the pods in the default Node Pool should exist.
+      pod_subnet_id     = default_node_pool.value.pod_subnet_id
+      type              = default_node_pool.value.type
+      tags              = merge({ "ResourceName" = format("%s", default_node_pool.value.name) }, var.tags, )
+      ultra_ssd_enabled = default_node_pool.value.ultra_ssd_enabled
 
-    # The ID of a Subnet where the Kubernetes Node Pool should exist. A Route Table must be configured on this Subnet.
-    vnet_subnet_id = var.default_node_pool.vnet_subnet_id
+      # The ID of a Subnet where the Kubernetes Node Pool should exist. A Route Table must be configured on this Subnet.
+      vnet_subnet_id = default_node_pool.value.vnet_subnet_id
 
-    # If enable_auto_scaling is set to false both min_count and max_count fields need to be set to null or omitted from the configuration.
-    max_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.max_count : null
-    min_count  = var.default_node_pool.enable_auto_scaling == true ? var.default_node_pool.min_count : null
-    node_count = var.default_node_pool.node_count
+      # If enable_auto_scaling is set to false both min_count and max_count fields need to be set to null or omitted from the configuration.
+      max_count  = default_node_pool.value.enable_auto_scaling == true ? default_node_pool.value.max_count : null
+      min_count  = default_node_pool.value.enable_auto_scaling == true ? default_node_pool.value.min_count : null
+      node_count = default_node_pool.value.node_count
 
-    dynamic "upgrade_settings" {
-      for_each = var.default_node_pool.upgrade_settings != null ? [var.default_node_pool.upgrade_settings] : []
-      content {
-        max_surge = upgrade_settings.value.max_surge
+      dynamic "upgrade_settings" {
+        for_each = default_node_pool.value.upgrade_settings != null ? [default_node_pool.value.upgrade_settings] : []
+        content {
+          max_surge = upgrade_settings.value.max_surge
+        }
       }
-    }
 
-    dynamic "kubelet_config" {
-      for_each = var.kubelet_config != null ? [var.kubelet_config] : []
-      content {
-        allowed_unsafe_sysctls    = kubelet_config.value.allowed_unsafe_sysctls
-        container_log_max_line    = kubelet_config.value.container_log_max_line
-        container_log_max_size_mb = kubelet_config.value.container_log_max_size_mb
-        cpu_cfs_quota_enabled     = kubelet_config.value.cpu_cfs_quota_enabled
-        cpu_cfs_quota_period      = kubelet_config.value.cpu_cfs_quota_period
-        cpu_manager_policy        = kubelet_config.value.cpu_manager_policy
-        image_gc_high_threshold   = kubelet_config.value.image_gc_high_threshold
-        image_gc_low_threshold    = kubelet_config.value.image_gc_low_threshold
-        pod_max_pid               = kubelet_config.value.pod_max_pid
-        topology_manager_policy   = kubelet_config.value.topology_manager_policy
+      dynamic "kubelet_config" {
+        for_each = var.kubelet_config != null ? [var.kubelet_config] : []
+        content {
+          allowed_unsafe_sysctls    = kubelet_config.value.allowed_unsafe_sysctls
+          container_log_max_line    = kubelet_config.value.container_log_max_line
+          container_log_max_size_mb = kubelet_config.value.container_log_max_size_mb
+          cpu_cfs_quota_enabled     = kubelet_config.value.cpu_cfs_quota_enabled
+          cpu_cfs_quota_period      = kubelet_config.value.cpu_cfs_quota_period
+          cpu_manager_policy        = kubelet_config.value.cpu_manager_policy
+          image_gc_high_threshold   = kubelet_config.value.image_gc_high_threshold
+          image_gc_low_threshold    = kubelet_config.value.image_gc_low_threshold
+          pod_max_pid               = kubelet_config.value.pod_max_pid
+          topology_manager_policy   = kubelet_config.value.topology_manager_policy
+        }
       }
-    }
 
-    dynamic "linux_os_config" {
-      for_each = var.linux_os_config != null ? [var.linux_os_config] : []
-      content {
-        swap_file_size_mb             = linux_os_config.value.swap_file_size_mb
-        transparent_huge_page_defrag  = linux_os_config.value.transparent_huge_page_defrag
-        transparent_huge_page_enabled = linux_os_config.value.transparent_huge_page_enabled
+      dynamic "linux_os_config" {
+        for_each = var.linux_os_config != null ? [var.linux_os_config] : []
+        content {
+          swap_file_size_mb             = linux_os_config.value.swap_file_size_mb
+          transparent_huge_page_defrag  = linux_os_config.value.transparent_huge_page_defrag
+          transparent_huge_page_enabled = linux_os_config.value.transparent_huge_page_enabled
 
-        dynamic "sysctl_config" {
-          for_each = linux_os_config.value.sysctl_config[*]
-          content {
-            fs_aio_max_nr                      = linux_os_config.value.fs_aio_max_nr
-            fs_file_max                        = linux_os_config.value.fs_file_max
-            fs_inotify_max_user_watches        = linux_os_config.value.fs_inotify_max_user_watches
-            fs_nr_open                         = linux_os_config.value.fs_nr_open
-            kernel_threads_max                 = linux_os_config.value.kernel_threads_max
-            net_core_netdev_max_backlog        = linux_os_config.value.net_core_netdev_max_backlog
-            net_core_optmem_max                = linux_os_config.value.net_core_optmem_max
-            net_core_rmem_default              = linux_os_config.value.net_core_rmem_default
-            net_core_rmem_max                  = linux_os_config.value.net_core_rmem_max
-            net_core_somaxconn                 = linux_os_config.value.net_core_somaxconn
-            net_core_wmem_default              = linux_os_config.value.net_core_wmem_default
-            net_core_wmem_max                  = linux_os_config.value.net_core_wmem_max
-            net_ipv4_ip_local_port_range_max   = linux_os_config.value.net_ipv4_ip_local_port_range_max
-            net_ipv4_ip_local_port_range_min   = linux_os_config.value.net_ipv4_ip_local_port_range_min
-            net_ipv4_neigh_default_gc_thresh1  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh1
-            net_ipv4_neigh_default_gc_thresh2  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh2
-            net_ipv4_neigh_default_gc_thresh3  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh3
-            net_ipv4_tcp_fin_timeout           = linux_os_config.value.net_ipv4_tcp_fin_timeout
-            net_ipv4_tcp_keepalive_intvl       = linux_os_config.value.net_ipv4_tcp_keepalive_intvl
-            net_ipv4_tcp_keepalive_probes      = linux_os_config.value.net_ipv4_tcp_keepalive_probes
-            net_ipv4_tcp_keepalive_time        = linux_os_config.value.net_ipv4_tcp_keepalive_time
-            net_ipv4_tcp_max_syn_backlog       = linux_os_config.value.net_ipv4_tcp_max_syn_backlog
-            net_ipv4_tcp_max_tw_buckets        = linux_os_config.value.net_ipv4_tcp_max_tw_buckets
-            net_ipv4_tcp_tw_reuse              = linux_os_config.value.net_ipv4_tcp_tw_reuse
-            net_netfilter_nf_conntrack_buckets = linux_os_config.value.net_netfilter_nf_conntrack_buckets
-            net_netfilter_nf_conntrack_max     = linux_os_config.value.net_netfilter_nf_conntrack_max
-            vm_max_map_count                   = linux_os_config.value.vm_max_map_count
-            vm_swappiness                      = linux_os_config.value.vm_swappiness
-            vm_vfs_cache_pressure              = linux_os_config.value.vm_vfs_cache_pressure
+          dynamic "sysctl_config" {
+            for_each = linux_os_config.value.sysctl_config[*]
+            content {
+              fs_aio_max_nr                      = linux_os_config.value.fs_aio_max_nr
+              fs_file_max                        = linux_os_config.value.fs_file_max
+              fs_inotify_max_user_watches        = linux_os_config.value.fs_inotify_max_user_watches
+              fs_nr_open                         = linux_os_config.value.fs_nr_open
+              kernel_threads_max                 = linux_os_config.value.kernel_threads_max
+              net_core_netdev_max_backlog        = linux_os_config.value.net_core_netdev_max_backlog
+              net_core_optmem_max                = linux_os_config.value.net_core_optmem_max
+              net_core_rmem_default              = linux_os_config.value.net_core_rmem_default
+              net_core_rmem_max                  = linux_os_config.value.net_core_rmem_max
+              net_core_somaxconn                 = linux_os_config.value.net_core_somaxconn
+              net_core_wmem_default              = linux_os_config.value.net_core_wmem_default
+              net_core_wmem_max                  = linux_os_config.value.net_core_wmem_max
+              net_ipv4_ip_local_port_range_max   = linux_os_config.value.net_ipv4_ip_local_port_range_max
+              net_ipv4_ip_local_port_range_min   = linux_os_config.value.net_ipv4_ip_local_port_range_min
+              net_ipv4_neigh_default_gc_thresh1  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh1
+              net_ipv4_neigh_default_gc_thresh2  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh2
+              net_ipv4_neigh_default_gc_thresh3  = linux_os_config.value.net_ipv4_neigh_default_gc_thresh3
+              net_ipv4_tcp_fin_timeout           = linux_os_config.value.net_ipv4_tcp_fin_timeout
+              net_ipv4_tcp_keepalive_intvl       = linux_os_config.value.net_ipv4_tcp_keepalive_intvl
+              net_ipv4_tcp_keepalive_probes      = linux_os_config.value.net_ipv4_tcp_keepalive_probes
+              net_ipv4_tcp_keepalive_time        = linux_os_config.value.net_ipv4_tcp_keepalive_time
+              net_ipv4_tcp_max_syn_backlog       = linux_os_config.value.net_ipv4_tcp_max_syn_backlog
+              net_ipv4_tcp_max_tw_buckets        = linux_os_config.value.net_ipv4_tcp_max_tw_buckets
+              net_ipv4_tcp_tw_reuse              = linux_os_config.value.net_ipv4_tcp_tw_reuse
+              net_netfilter_nf_conntrack_buckets = linux_os_config.value.net_netfilter_nf_conntrack_buckets
+              net_netfilter_nf_conntrack_max     = linux_os_config.value.net_netfilter_nf_conntrack_max
+              vm_max_map_count                   = linux_os_config.value.vm_max_map_count
+              vm_swappiness                      = linux_os_config.value.vm_swappiness
+              vm_vfs_cache_pressure              = linux_os_config.value.vm_vfs_cache_pressure
+            }
           }
         }
       }
     }
-
   }
 
   dynamic "addon_profile" {
@@ -343,23 +345,31 @@ resource "azurerm_kubernetes_cluster" "main" {
     content {
       enabled = true
       azure_active_directory {
-        managed                = var.azure_active_directory.managed
-        tenant_id              = var.azure_active_directory.tenant_id
-        admin_group_object_ids = var.azure_active_directory.managed == true ? var.azure_active_directory.admin_group_object_ids : null
-        azure_rbac_enabled     = var.azure_active_directory.managed == true ? var.azure_active_directory.azure_rbac_enabled : null
-        client_app_id          = var.azure_active_directory.managed == false ? var.azure_active_directory.client_id : null
-        server_app_id          = var.azure_active_directory.managed == false ? var.azure_active_directory.server_app_id : null
-        server_app_secret      = var.azure_active_directory.managed == false ? var.azure_active_directory.server_app_secret : null
+        managed                = azure_active_directory.value.managed
+        tenant_id              = azure_active_directory.value.tenant_id
+        admin_group_object_ids = azure_active_directory.value.managed == true ? azure_active_directory.value.admin_group_object_ids : null
+        azure_rbac_enabled     = azure_active_directory.value.managed == true ? azure_active_directory.value.azure_rbac_enabled : null
+        client_app_id          = azure_active_directory.value.managed == false ? azure_active_directory.value.client_id : null
+        server_app_id          = azure_active_directory.value.managed == false ? azure_active_directory.value.server_app_id : null
+        server_app_secret      = azure_active_directory.value.managed == false ? azure_active_directory.value.server_app_secret : null
       }
     }
   }
 
   dynamic "service_principal" {
-
+    for_each = var.service_principal != null ? [var.service_principal] : []
+    content {
+      client_id     = service_principal.value.client_id
+      client_secret = service_principal.value.client_secret
+    }
   }
 
- /*  dynamic "windows_profile" {
-
+  dynamic "windows_profile" {
+    for_each = var.windows_profile != null ? [var.windows_profile] : []
+    content {
+      admin_username = windows_profile.value.admin_username
+      admin_password = windows_profile.value.admin_password
+      license        = "Windows_Server"
+    }
   }
-  */
 }
